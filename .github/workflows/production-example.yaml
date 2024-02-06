@@ -7,7 +7,7 @@ on:
 
 jobs:
   call-workflow-passing-data:
-    uses: madebyraygun/github-actions/.github/workflows/craft/deploy.yaml@main
+    uses: madebyraygun/github-actions/.github/workflows/craft-deploy.yaml@main
     with:
       run_id: ${{ github.run_id }}
       run_number: ${{ github.run_number }}
