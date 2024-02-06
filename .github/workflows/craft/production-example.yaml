@@ -1,0 +1,15 @@
+name: Craft CMS production deployment example
+
+on:
+  push:
+    branches:
+      - 'main-example'
+
+jobs:
+  call-workflow-passing-data:
+    uses: madebyraygun/github-actions/.github/workflows/craft-deploy.yaml@main
+    with:
+      run_id: ${{ github.run_id }}
+      run_number: ${{ github.run_number }}
+      environment: production
+    secrets: inherit
