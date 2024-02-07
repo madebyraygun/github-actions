@@ -97,7 +97,7 @@ jobs:
                 echo "No persistent dirs found"
               else
                 echo "Symlinking persistent dirs"
-                for dir in $PERSISTENT_DIRS; do
+                for dir in "${DIRS[@]}"; do
                   ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
                 done
             fi
