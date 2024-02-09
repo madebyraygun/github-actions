@@ -109,7 +109,7 @@ jobs:
             if [ $PHP_VERSION ];
               then
                 # echo "Clearing Opcache"
-                sudo systemctl restart php"$PHP_VERSION"rc-fpm
+                sudo systemctl restart php"$PHP_VERSION"-fpm
               else 
                 echo "PHP_VERSION not set, skipping restart"
             fi
