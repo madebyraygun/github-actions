@@ -115,6 +115,7 @@ jobs:
             fi
 
             cd $PROJECT_ROOT/current/craft
+            chmod a+x craft
             php craft off --retry=60
             php -d memory_limit=2048M craft migrate/all
             php craft project-config/apply
