@@ -1,0 +1,158 @@
+name: Craft CMS base deployment
+
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        required: true
+        type: string
+      run_number:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+    secrets:
+      ssh_key:
+        required: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      # Pull repository into the current pipeline.
+      - name: Pull repository
+        uses: actions/checkout@v4
+
+      # Setup container with private SSH Key (used by rsync)
+      - name: Load private SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.ssh_key }}
+
+      # Use a specific version of Node
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ vars.node_version }}.x"
+
+      # Install PHP dependencies
+      - name: Composer install
+        run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+
+      # RSYNC
+      # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
+      - name: Deploy with rsync
+        run: |
+          rsync -azh --delete --delete-excluded --include={"craft/***","public/***"} --exclude="*" -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
+
+      # File management
+      # - Move files to the correct directory and execute Craft commands on remote server
+      - name: Post deploy
+        id: post-deploy
+        continue-on-error: true
+        uses: appleboy/ssh-action@master
+        env:
+          PROJECT_ROOT: ${{ vars.remote_project_root }}
+          RUN_ID: ${{ inputs.run_id }}
+          RUN_NUMBER: ${{ inputs.run_number }}
+          PHP_VERSION: ${{ vars.php_version }}
+          PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
+        with:
+          host: ${{ vars.ssh_host }}
+          username: ${{ vars.ssh_user }}
+          key: ${{ secrets.ssh_key }}
+          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PHP_VERSION, PERSISTENT_DIRS
+          script: |
+            set -e
+
+            # Backup the database to the previous deploy folder before doing anything else
+            cd $PROJECT_ROOT/current/craft
+            php craft db/backup
+
+            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ];
+              then
+              echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
+              rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+            fi
+            
+            echo "Creating releases/$RUN_ID.$RUN_NUMBER"
+            cp -dR $PROJECT_ROOT/deploy-cache $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+            
+            echo "Symlinking env"
+            ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/craft
+
+            IFS=',' read -ra DIRS <<< "$PERSISTENT_DIRS"
+            if [ ${#DIRS[@]} -eq 0 ];
+              then
+                echo "No persistent dirs found"
+              else
+                echo "Symlinking persistent dirs"
+                for dir in "${DIRS[@]}"; do
+                  ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
+                done
+            fi
+            
+            echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
+
+            rm -f $PROJECT_ROOT/current
+            ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
+            if [ $PHP_VERSION ];
+              then
+                # echo "Clearing Opcache"
+                sudo systemctl restart php"$PHP_VERSION"-fpm
+              else 
+                echo "PHP_VERSION not set, skipping restart"
+            fi
+
+            cd $PROJECT_ROOT/current/craft
+            chmod a+x craft
+            php craft off --retry=60
+            php -d memory_limit=2048M craft migrate/all
+            php craft project-config/apply
+            php craft clear-caches/all
+
+      # Revert if post-deploy step fails
+      - name: Revert on failure
+        if: steps.post-deploy.outcome == 'failure'
+        uses: appleboy/ssh-action@master
+        env:
+          PROJECT_ROOT: ${{ vars.remote_project_root }}
+          RUN_ID: ${{ inputs.run_id }}
+          RUN_NUMBER: ${{ inputs.run_number }}
+        with:
+          host: ${{ vars.ssh_host }}
+          username: ${{ vars.ssh_user }}
+          key: ${{ secrets.ssh_key }}
+          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER
+          script: |
+            echo "Failure in the post-deploy step, reverting to the previous release"
+            rm -f $PROJECT_ROOT/current
+            rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER
+
+            # Find the most recent and symlink it to current
+            ls -t $PROJECT_ROOT/releases | head -n 1
+            ln -s $PROJECT_ROOT/releases/$(ls -t $PROJECT_ROOT/releases | head -n 1) $PROJECT_ROOT/current
+            
+            cd $PROJECT_ROOT/current/craft
+            
+            # Find the most recent database backup in the /storage/backups folder and restore it
+            php craft db/restore $(ls -t storage/backups/ *.sql | head -n 1)
+            php craft clear-caches/all
+            exit 1
+
+      # Remove old releases
+      - name: Remove old releases
+        if: steps.post-deploy.outcome == 'success'
+        uses: appleboy/ssh-action@master
+        env:
+          PROJECT_ROOT: ${{ vars.remote_project_root }}
+        with:
+          host: ${{ vars.ssh_host }}
+          username: ${{ vars.ssh_user }}
+          key: ${{ secrets.ssh_key }}
+          envs: PROJECT_ROOT
+          script: |
+            echo "Removing old releases"
+            cd $PROJECT_ROOT/releases && ls -t | tail -n +6 | xargs rm -rf
