@@ -31,12 +31,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.ssh_key }}
 
-      # Use a specific version of Node
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "${{ vars.node_version }}.x"
-
       # Install PHP dependencies
       - name: Composer install
         run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
