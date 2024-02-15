@@ -1,4 +1,4 @@
-name: Craft CMS base deployment
+name: Craft CMS base deployment (enhance platform)
 
 on:
   workflow_call:
@@ -65,13 +65,15 @@ jobs:
           PROJECT_ROOT: ${{ vars.remote_project_root }}
           RUN_ID: ${{ inputs.run_id }}
           RUN_NUMBER: ${{ inputs.run_number }}
-          PHP_VERSION: ${{ vars.php_version }}
           PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
+          PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
+          NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
+          API_KEY: ${{ secrets.cp_api_key }}
         with:
           host: ${{ vars.ssh_host }}
           username: ${{ vars.ssh_user }}
           key: ${{ secrets.ssh_key }}
-          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PHP_VERSION, PERSISTENT_DIRS
+          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PERSISTENT_DIRS, PHP_RESTART_URL, NGINX_PURGE_URL, API_KEY
           script: |
             set -e
 
@@ -79,8 +81,7 @@ jobs:
             cd $PROJECT_ROOT/current/craft
             php craft db/backup
 
-            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ];
-              then
+            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
               echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
               rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
             fi
@@ -92,26 +93,42 @@ jobs:
             ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/craft
 
             IFS=',' read -ra DIRS <<< "$PERSISTENT_DIRS"
-            if [ ${#DIRS[@]} -eq 0 ];
+            if [ ${#DIRS[@]} -eq 0 ]; 
               then
                 echo "No persistent dirs found"
               else
                 echo "Symlinking persistent dirs"
                 for dir in "${DIRS[@]}"; do
                   ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
-                done
+              done
             fi
             
             echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
 
             rm -f $PROJECT_ROOT/current
             ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
-            if [ $PHP_VERSION ];
-              then
-                # echo "Clearing Opcache"
-                sudo systemctl restart php"$PHP_VERSION"-fpm
-              else 
-                echo "PHP_VERSION not set, skipping restart"
+
+            if [[ $PHP_RESTART_URL ]] && [[ $API_KEY ]]; then
+              echo "Restarting PHP"
+              HEADER="Authorization: Bearer $API_KEY"
+              echo "Running curl -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL}"
+              RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL})
+
+              if [ $RESPONSE_CODE -ne 200 ]; then
+                echo "Error: PHP restart failed with status code $RESPONSE_CODE"
+                exit 1
+              fi
+            fi
+
+            if [[ $NGINX_PURGE_URL ]] && [[ $API_KEY]]; then
+              echo "Purging Nginx cache"
+              HEADER="Authorization: Bearer $API_KEY"
+              RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "${HEADER}" ${NGINX_PURGE_URL})
+
+              if [ $RESPONSE_CODE -ne 200 ]; then
+                echo "Error: Nginx cache purge failed with status code $RESPONSE_CODE"
+                exit 1
+              fi
             fi
 
             cd $PROJECT_ROOT/current/craft

@@ -1,4 +1,4 @@
-name: Craft CMS base deployment
+name: Craft CMS headless deployment
 
 on:
   workflow_call:
@@ -138,7 +138,7 @@ jobs:
             cd $PROJECT_ROOT/current/craft
             
             # Find the most recent database backup in the /storage/backups folder and restore it
-            php craft db/restore $(ls -t storage/backups/ *.sql | head -n 1)
+            php craft db/restore $(ls -t storage/backups/*.sql | head -n 1)
             php craft clear-caches/all
             exit 1
 
