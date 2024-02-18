@@ -116,7 +116,7 @@ jobs:
               echo "PHP restart response code: $RESPONSE_CODE"
               if [ $RESPONSE_CODE -ne 200 ]; then
                 echo "PHP restart failed with status code $RESPONSE_CODE"
-                # exit 1
+                exit 1
               fi
             fi
 
@@ -127,7 +127,7 @@ jobs:
               echo "Nginx cache purge response code: $RESPONSE_CODE"
               if [ $RESPONSE_CODE -ne 200 ]; then
                 echo "Nginx cache purge failed with status code $RESPONSE_CODE"
-                # exit 1
+                exit 1
               fi
             fi
 
