@@ -181,3 +181,4 @@ jobs:
           script: |
             echo "Removing old releases"
             cd $PROJECT_ROOT/releases && ls -t | tail -n +6 | xargs rm -rf
+            ls -t $(find $PROJECT_ROOT/releases -type f -name "*.sql") | tail -n +2 | xargs rm
