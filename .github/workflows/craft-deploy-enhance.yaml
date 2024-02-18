@@ -38,16 +38,16 @@ jobs:
           node-version: "${{ vars.node_version }}.x"
 
       # Install PHP dependencies
-      - name: Composer install
-        run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+      # - name: Composer install
+        # run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
       # Install NPM dependencies
-      - name: NPM install
-        run: npm ci
+      # - name: NPM install
+        # run: npm ci
 
       # Build assets using NPM scripts
-      - name: Build assets
-        run: npm run production
+      # - name: Build assets
+        # run: npm run production
 
       # RSYNC
       # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
