@@ -31,11 +31,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.ssh_key }}
 
-      # Use a specific version of Node
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "${{ vars.node_version }}.x"
+      # # Use a specific version of Node
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: "${{ vars.node_version }}.x"
 
       # Install PHP dependencies
       # - name: Composer install
@@ -51,125 +51,132 @@ jobs:
 
       # RSYNC
       # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
-      - name: Deploy with rsync
-        run: |
-          rsync -azh --delete --delete-excluded --include={"craft/***","public/***"} --exclude="*" -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
+      # - name: Deploy with rsync
+      #   run: |
+      #     rsync -azh --delete --delete-excluded --include={"craft/***","public/***"} --exclude="*" -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
 
       # File management
       # - Move files to the correct directory and execute Craft commands on remote server
-      - name: Post deploy
-        id: post-deploy
-        continue-on-error: true
-        uses: appleboy/ssh-action@master
-        env:
-          PROJECT_ROOT: ${{ vars.remote_project_root }}
-          RUN_ID: ${{ inputs.run_id }}
-          RUN_NUMBER: ${{ inputs.run_number }}
-          PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
-          PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
-          NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
-          API_KEY: ${{ secrets.cp_api_key }}
-        with:
-          host: ${{ vars.ssh_host }}
-          username: ${{ vars.ssh_user }}
-          key: ${{ secrets.ssh_key }}
-          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PERSISTENT_DIRS, PHP_RESTART_URL, NGINX_PURGE_URL, API_KEY
-          script: |
-            set -e
+      # - name: Post deploy
+      #   id: post-deploy
+      #   continue-on-error: true
+      #   uses: appleboy/ssh-action@master
+      #   env:
+      #     PROJECT_ROOT: ${{ vars.remote_project_root }}
+      #     RUN_ID: ${{ inputs.run_id }}
+      #     RUN_NUMBER: ${{ inputs.run_number }}
+      #     PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
+          
+      #   with:
+      #     host: ${{ vars.ssh_host }}
+      #     username: ${{ vars.ssh_user }}
+      #     key: ${{ secrets.ssh_key }}
+      #     envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PERSISTENT_DIRS, PHP_RESTART_URL, NGINX_PURGE_URL, API_KEY
+      #     script: |
+      #       set -e
 
-            # Backup the database to the previous deploy folder before doing anything else
-            # cd $PROJECT_ROOT/current/craft
-            # php craft db/backup
+      #       # Backup the database to the previous deploy folder before doing anything else
+      #       # cd $PROJECT_ROOT/current/craft
+      #       # php craft db/backup
 
-            # if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
-            #   echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
-            #   rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
-            # fi
+      #       # if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
+      #       #   echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
+      #       #   rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+      #       # fi
             
-            echo "Creating releases/$RUN_ID.$RUN_NUMBER"
-            cp -dR $PROJECT_ROOT/deploy-cache $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+      #       echo "Creating releases/$RUN_ID.$RUN_NUMBER"
+      #       cp -dR $PROJECT_ROOT/deploy-cache $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
             
-            echo "Symlinking env"
-            ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/craft
+      #       echo "Symlinking env"
+      #       ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/craft
 
-            IFS=',' read -ra DIRS <<< "$PERSISTENT_DIRS"
-            if [ ${#DIRS[@]} -eq 0 ]; 
-              then
-                echo "No persistent dirs found"
-              else
-                echo "Symlinking persistent dirs"
-                for dir in "${DIRS[@]}"; do
-                  ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
-              done
-            fi
+      #       IFS=',' read -ra DIRS <<< "$PERSISTENT_DIRS"
+      #       if [ ${#DIRS[@]} -eq 0 ]; 
+      #         then
+      #           echo "No persistent dirs found"
+      #         else
+      #           echo "Symlinking persistent dirs"
+      #           for dir in "${DIRS[@]}"; do
+      #             ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
+      #         done
+      #       fi
             
-            echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
+      #       echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
 
-            rm -f $PROJECT_ROOT/current
-            ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
+      #       rm -f $PROJECT_ROOT/current
+      #       ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
 
-            if [[ $PHP_RESTART_URL ]] && [[ $API_KEY ]]; then
-              echo "Restarting PHP"
-              HEADER="Authorization: Bearer $API_KEY"
-              echo "Running PHP restart"
-              curl -d "" -H "${HEADER}" ${PHP_RESTART_URL}
-            fi
+      #       # cd $PROJECT_ROOT/current/craft
+      #       # chmod a+x craft
+      #       # php craft off --retry=60
+      #       # php -d memory_limit=2048M craft migrate/all
+      #       # php craft project-config/apply
+      #       # php craft clear-caches/all
 
-            if [[ $NGINX_PURGE_URL ]] && [[ $API_KEY]]; then
-              echo "Purging Nginx cache"
-              HEADER="Authorization: Bearer $API_KEY"
-              curl -X DELETE -H "${HEADER}" ${NGINX_PURGE_URL}
-            fi
+      # Restart PHP
+      - name: Restart PHP
+        steps:
+          - env:
+              PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
+              API_KEY: ${{ secrets.cp_api_key }}
+            run: |
+              curl -d "" \
+              --url $PHP_RESTART_URL \
+              --header "Authorization: Bearer $API_KEY"
 
-            # cd $PROJECT_ROOT/current/craft
-            # chmod a+x craft
-            # php craft off --retry=60
-            # php -d memory_limit=2048M craft migrate/all
-            # php craft project-config/apply
-            # php craft clear-caches/all
+      # Restart PHP
+      - name: Restart NGINX
+        steps:
+          - env:
+              NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
+              API_KEY: ${{ secrets.cp_api_key }}
+            run: |
+              curl -X DELETE \
+              --url $NGINX_PURGE_URL \
+              --header "Authorization: Bearer $API_KEY"
 
       # Revert if post-deploy step fails
-      - name: Revert on failure
-        if: steps.post-deploy.outcome == 'failure'
-        uses: appleboy/ssh-action@master
-        env:
-          PROJECT_ROOT: ${{ vars.remote_project_root }}
-          RUN_ID: ${{ inputs.run_id }}
-          RUN_NUMBER: ${{ inputs.run_number }}
-        with:
-          host: ${{ vars.ssh_host }}
-          username: ${{ vars.ssh_user }}
-          key: ${{ secrets.ssh_key }}
-          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER
-          script: |
-            echo "Failure in the post-deploy step, reverting to the previous release"
-            rm -f $PROJECT_ROOT/current
-            rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER
+      # - name: Revert on failure
+      #   if: steps.post-deploy.outcome == 'failure'
+      #   uses: appleboy/ssh-action@master
+      #   env:
+      #     PROJECT_ROOT: ${{ vars.remote_project_root }}
+      #     RUN_ID: ${{ inputs.run_id }}
+      #     RUN_NUMBER: ${{ inputs.run_number }}
+      #   with:
+      #     host: ${{ vars.ssh_host }}
+      #     username: ${{ vars.ssh_user }}
+      #     key: ${{ secrets.ssh_key }}
+      #     envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER
+      #     script: |
+      #       echo "Failure in the post-deploy step, reverting to the previous release"
+      #       rm -f $PROJECT_ROOT/current
+      #       rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER
 
-            # Find the most recent and symlink it to current
-            ls -t $PROJECT_ROOT/releases | head -n 1
-            ln -s $PROJECT_ROOT/releases/$(ls -t $PROJECT_ROOT/releases | head -n 1) $PROJECT_ROOT/current
+      #       # Find the most recent and symlink it to current
+      #       ls -t $PROJECT_ROOT/releases | head -n 1
+      #       ln -s $PROJECT_ROOT/releases/$(ls -t $PROJECT_ROOT/releases | head -n 1) $PROJECT_ROOT/current
             
-            cd $PROJECT_ROOT/current/craft
+      #       cd $PROJECT_ROOT/current/craft
             
-            # Find the most recent database backup in the /storage/backups folder and restore it
-            php craft db/restore $(ls -t storage/backups/*.sql | head -n 1)
-            php craft clear-caches/all
-            exit 1
+      #       # Find the most recent database backup in the /storage/backups folder and restore it
+      #       php craft db/restore $(ls -t storage/backups/*.sql | head -n 1)
+      #       php craft clear-caches/all
+      #       exit 1
 
       # Remove old releases
-      - name: Remove old releases
-        if: steps.post-deploy.outcome == 'success'
-        uses: appleboy/ssh-action@master
-        env:
-          PROJECT_ROOT: ${{ vars.remote_project_root }}
-        with:
-          host: ${{ vars.ssh_host }}
-          username: ${{ vars.ssh_user }}
-          key: ${{ secrets.ssh_key }}
-          envs: PROJECT_ROOT
-          script: |
-            echo "Removing old releases"
-            cd $PROJECT_ROOT/releases && ls -t | tail -n +6 | xargs rm -rf
-            echo "Cleaning up database backups"
-            ls -t $(find $PROJECT_ROOT/releases -type f -name "*.sql") | tail -n +3 | xargs rm
+      # - name: Remove old releases
+      #   if: steps.post-deploy.outcome == 'success'
+      #   uses: appleboy/ssh-action@master
+      #   env:
+      #     PROJECT_ROOT: ${{ vars.remote_project_root }}
+      #   with:
+      #     host: ${{ vars.ssh_host }}
+      #     username: ${{ vars.ssh_user }}
+      #     key: ${{ secrets.ssh_key }}
+      #     envs: PROJECT_ROOT
+      #     script: |
+      #       echo "Removing old releases"
+      #       cd $PROJECT_ROOT/releases && ls -t | tail -n +6 | xargs rm -rf
+      #       echo "Cleaning up database backups"
+      #       ls -t $(find $PROJECT_ROOT/releases -type f -name "*.sql") | tail -n +3 | xargs rm
