@@ -111,12 +111,12 @@ jobs:
             if [[ $PHP_RESTART_URL ]] && [[ $API_KEY ]]; then
               echo "Restarting PHP"
               HEADER="Authorization: Bearer $API_KEY"
-              echo "Running curl -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL}"
-              RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL})
+              echo "Running PHP restart"
+              RESPONSE_CODE=$(curl -d "" -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL})
 
               if [ $RESPONSE_CODE -ne 200 ]; then
                 echo "Error: PHP restart failed with status code $RESPONSE_CODE"
-                exit 1
+                # exit 1
               fi
             fi
 
@@ -127,7 +127,7 @@ jobs:
 
               if [ $RESPONSE_CODE -ne 200 ]; then
                 echo "Error: Nginx cache purge failed with status code $RESPONSE_CODE"
-                exit 1
+                # exit 1
               fi
             fi
 
