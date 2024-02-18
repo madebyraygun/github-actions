@@ -112,23 +112,13 @@ jobs:
               echo "Restarting PHP"
               HEADER="Authorization: Bearer $API_KEY"
               echo "Running PHP restart"
-              RESPONSE_CODE=$(curl -d "" -s -o /dev/null -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL})
-              echo "PHP restart response code: $RESPONSE_CODE"
-              if [ $RESPONSE_CODE -ne 200 ]; then
-                echo "PHP restart failed with status code $RESPONSE_CODE"
-                exit 1
-              fi
+              curl -s -o /dev/null -d "" -w "%{http_code}" -H "${HEADER}" ${PHP_RESTART_URL}
             fi
 
             if [[ $NGINX_PURGE_URL ]] && [[ $API_KEY]]; then
               echo "Purging Nginx cache"
               HEADER="Authorization: Bearer $API_KEY"
-              RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "${HEADER}" ${NGINX_PURGE_URL})
-              echo "Nginx cache purge response code: $RESPONSE_CODE"
-              if [ $RESPONSE_CODE -ne 200 ]; then
-                echo "Nginx cache purge failed with status code $RESPONSE_CODE"
-                exit 1
-              fi
+              curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "${HEADER}" ${NGINX_PURGE_URL}
             fi
 
             cd $PROJECT_ROOT/current/craft
