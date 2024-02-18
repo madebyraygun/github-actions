@@ -113,27 +113,23 @@ jobs:
       #       # php craft project-config/apply
       #       # php craft clear-caches/all
 
-      # Restart PHP
-      - name: Restart PHP
-        steps:
-          - env:
-              PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
-              API_KEY: ${{ secrets.cp_api_key }}
-            run: |
-              curl -d "" \
-              --url $PHP_RESTART_URL \
-              --header "Authorization: Bearer $API_KEY"
+      name: Restart PHP
+      env:
+        PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
+        API_KEY: ${{ secrets.cp_api_key }}
+      run: |
+        curl -X POST -d "" \
+        --url $PHP_RESTART_URL \
+        --header "Authorization: Bearer $API_KEY"
 
-      # Restart PHP
-      - name: Restart NGINX
-        steps:
-          - env:
-              NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
-              API_KEY: ${{ secrets.cp_api_key }}
-            run: |
-              curl -X DELETE \
-              --url $NGINX_PURGE_URL \
-              --header "Authorization: Bearer $API_KEY"
+    - name: Restart NGINX
+      env:
+        NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
+        API_KEY: ${{ secrets.cp_api_key }}
+      run: |
+        curl -X DELETE \
+        --url $NGINX_PURGE_URL \
+        --header "Authorization: Bearer $API_KEY"
 
       # Revert if post-deploy step fails
       # - name: Revert on failure
