@@ -38,16 +38,16 @@ jobs:
           node-version: "${{ vars.node_version }}.x"
 
       # Install PHP dependencies
-      - name: Composer install
-        run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
+      # - name: Composer install
+        # run: cd craft && composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
       # Install NPM dependencies
-      - name: NPM install
-        run: npm ci
+      # - name: NPM install
+        # run: npm ci
 
       # Build assets using NPM scripts
-      - name: Build assets
-        run: npm run production
+      # - name: Build assets
+        # run: npm run production
 
       # RSYNC
       # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
@@ -78,13 +78,13 @@ jobs:
             set -e
 
             # Backup the database to the previous deploy folder before doing anything else
-            cd $PROJECT_ROOT/current/craft
-            php craft db/backup
+            # cd $PROJECT_ROOT/current/craft
+            # php craft db/backup
 
-            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
-              echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
-              rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
-            fi
+            # if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
+            #   echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
+            #   rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+            # fi
             
             echo "Creating releases/$RUN_ID.$RUN_NUMBER"
             cp -dR $PROJECT_ROOT/deploy-cache $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
@@ -121,12 +121,12 @@ jobs:
               curl -s -o /dev/null -w "%{http_code}" -X DELETE -H "${HEADER}" ${NGINX_PURGE_URL}
             fi
 
-            cd $PROJECT_ROOT/current/craft
-            chmod a+x craft
-            php craft off --retry=60
-            php -d memory_limit=2048M craft migrate/all
-            php craft project-config/apply
-            php craft clear-caches/all
+            # cd $PROJECT_ROOT/current/craft
+            # chmod a+x craft
+            # php craft off --retry=60
+            # php -d memory_limit=2048M craft migrate/all
+            # php craft project-config/apply
+            # php craft clear-caches/all
 
       # Revert if post-deploy step fails
       - name: Revert on failure
