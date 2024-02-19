@@ -65,7 +65,6 @@ jobs:
           RUN_ID: ${{ inputs.run_id }}
           RUN_NUMBER: ${{ inputs.run_number }}
           PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
-          
         with:
           host: ${{ vars.ssh_host }}
           username: ${{ vars.ssh_user }}
