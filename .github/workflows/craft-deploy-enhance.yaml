@@ -50,7 +50,7 @@ jobs:
         run: npm run production
 
       # RSYNC
-      - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
+      # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
       - name: Deploy with rsync
         run: |
           rsync -azh --delete --delete-excluded --include={"craft/***","public/***"} --exclude="*" -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
