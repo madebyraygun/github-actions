@@ -149,7 +149,7 @@ jobs:
           envs: PROJECT_ROOT
           script: |
             echo "Removing old releases"
-            cd $PROJECT_ROOT/releases && ls -t | tail -n +6 | xargs rm -rf
+            cd $PROJECT_ROOT/releases && ls -t | tail -n +4 | xargs rm -rf
             echo "Cleaning up database backups"
             ls -t $(find $PROJECT_ROOT/releases -type f -name "*.sql") | tail -n +3 | xargs rm
 
