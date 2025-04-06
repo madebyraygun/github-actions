@@ -1,4 +1,4 @@
-name: Craft CMS headless deployment
+name: Craft CMS headless deployment (enhance platform)
 
 on:
   workflow_call:
@@ -42,7 +42,6 @@ jobs:
           rsync -azh --delete --delete-excluded --include={"craft/***","public/***"} --exclude="*" -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
 
       # File management
-      # - Move files to the correct directory and execute Craft commands on remote server
       - name: Post deploy
         id: post-deploy
         continue-on-error: true
@@ -51,13 +50,12 @@ jobs:
           PROJECT_ROOT: ${{ vars.remote_project_root }}
           RUN_ID: ${{ inputs.run_id }}
           RUN_NUMBER: ${{ inputs.run_number }}
-          PHP_VERSION: ${{ vars.php_version }}
           PERSISTENT_DIRS: ${{ vars.persistent_dirs }}
         with:
           host: ${{ vars.ssh_host }}
           username: ${{ vars.ssh_user }}
           key: ${{ secrets.ssh_key }}
-          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PHP_VERSION, PERSISTENT_DIRS
+          envs: PROJECT_ROOT, RUN_ID, RUN_NUMBER, PERSISTENT_DIRS, PHP_RESTART_URL, NGINX_PURGE_URL, API_KEY
           script: |
             set -e
 
@@ -65,8 +63,7 @@ jobs:
             cd $PROJECT_ROOT/current/craft
             php craft db/backup
 
-            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ];
-              then
+            if [ -d "$PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER" ]; then
               echo "Removing: releases/$RUN_ID.$RUN_NUMBER"
               rm -rf $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
             fi
@@ -78,27 +75,20 @@ jobs:
             ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/craft
 
             IFS=',' read -ra DIRS <<< "$PERSISTENT_DIRS"
-            if [ ${#DIRS[@]} -eq 0 ];
+            if [ ${#DIRS[@]} -eq 0 ]; 
               then
                 echo "No persistent dirs found"
               else
                 echo "Symlinking persistent dirs"
                 for dir in "${DIRS[@]}"; do
                   ln -nfs $PROJECT_ROOT/$dir $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/public/$dir
-                done
+              done
             fi
             
             echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
 
             rm -f $PROJECT_ROOT/current
             ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
-            if [ $PHP_VERSION ];
-              then
-                # echo "Clearing Opcache"
-                sudo systemctl restart php"$PHP_VERSION"-fpm
-              else 
-                echo "PHP_VERSION not set, skipping restart"
-            fi
 
             cd $PROJECT_ROOT/current/craft
             chmod a+x craft
@@ -106,6 +96,24 @@ jobs:
             php -d memory_limit=2048M craft migrate/all
             php craft project-config/apply
             php craft clear-caches/all
+
+      - name: Restart PHP
+        env:
+          PHP_RESTART_URL: ${{ vars.cp_php_restart_url }}
+          API_KEY: ${{ secrets.cp_api_key }}
+        run: |
+          curl -X POST -d "" \
+          --url $PHP_RESTART_URL \
+          --header "Authorization: Bearer $API_KEY"
+
+      - name: Restart NGINX
+        env:
+          NGINX_PURGE_URL: ${{ vars.cp_nginx_purge_url }}
+          API_KEY: ${{ secrets.cp_api_key }}
+        run: |
+          curl -X DELETE \
+          --url $NGINX_PURGE_URL \
+          --header "Authorization: Bearer $API_KEY"
 
       # Revert if post-deploy step fails
       - name: Revert on failure
@@ -152,4 +160,3 @@ jobs:
             cd $PROJECT_ROOT/releases && ls -t | tail -n +4 | xargs rm -rf
             echo "Cleaning up database backups"
             ls -t $(find $PROJECT_ROOT/releases -type f -name "*.sql") | tail -n +3 | xargs rm
-
