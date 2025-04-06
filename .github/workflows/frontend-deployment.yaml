@@ -87,6 +87,10 @@ jobs:
             rm -f $PROJECT_ROOT/current
             ln -s $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER $PROJECT_ROOT/current
 
+            echo "Symlinking env"
+            ln -nfs $PROJECT_ROOT/.env $PROJECT_ROOT/deploy-cache
+            ln -nfs $PROJECT_ROOT/webhook.php $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER/dist
+
       # Revert if post-deploy step fails
       - name: Revert on failure
         if: steps.post-deploy.outcome == 'failure'
