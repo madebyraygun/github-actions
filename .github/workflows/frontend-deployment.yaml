@@ -53,7 +53,7 @@ jobs:
       # - rsync [options] ~/localdir ssh_user@ssh_host:destination_directory, this will copy the files to the remote server and delete any files that are not present in the local directory
       - name: Deploy with rsync
         run: |
-          rsync -azh --delete -e "ssh -o StrictHostKeyChecking=no" ./dist ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
+          rsync -azh --delete -e "ssh -o StrictHostKeyChecking=no" ./ ${{ vars.ssh_user }}@${{ vars.ssh_host }}:${{ vars.remote_project_root }}/deploy-cache
 
       # File management
       # - Move files to the correct directory create symlinks
@@ -80,7 +80,7 @@ jobs:
             fi
 
             echo "Creating releases/$RUN_ID.$RUN_NUMBER"
-            cp -dR $PROJECT_ROOT/deploy-cache $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
+            cp -dR $PROJECT_ROOT/deploy-cache/dist $PROJECT_ROOT/releases/$RUN_ID.$RUN_NUMBER;
 
             echo "Linking current to revision $RUN_ID.$RUN_NUMBER"
 
