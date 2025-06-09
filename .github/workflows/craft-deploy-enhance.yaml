@@ -15,7 +15,8 @@ on:
     secrets:
       ssh_key:
         required: true
-
+      composer_token:
+        required: true
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -54,6 +55,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "${{ vars.node_version }}.x"
+
+      # Set up Composer auth for private GitHub packages
+      - name: Set up Composer auth for private GitHub packages
+        run: composer config --global github-oauth.github.com ${{ secrets.composer_token }}
 
       # Install PHP dependencies
       - name: Composer install
